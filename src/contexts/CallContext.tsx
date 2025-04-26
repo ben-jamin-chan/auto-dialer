@@ -157,76 +157,81 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Add a phone number to a call list
   const addPhoneNumber = (listId: string, number: string, name?: string) => {
-    setCallLists(
-      callLists.map(list => {
-        if (list.id === listId) {
-          const newNumber: PhoneNumber = {
-            id: Date.now().toString(),
-            number,
-            name,
-            status: 'pending',
-          };
-          return {
-            ...list,
-            phoneNumbers: [...list.phoneNumbers, newNumber],
-            updatedAt: new Date(),
-          };
-        }
-        return list;
-      })
-    );
-
+    const newNumber: PhoneNumber = {
+      id: Date.now().toString(),
+      number,
+      name,
+      status: 'pending',
+    };
+    
+    const updatedLists = callLists.map(list => {
+      if (list.id === listId) {
+        return {
+          ...list,
+          phoneNumbers: [...list.phoneNumbers, newNumber],
+          updatedAt: new Date(),
+        };
+      }
+      return list;
+    });
+    
+    setCallLists(updatedLists);
+    
     // Update active call list if needed
     if (activeCallList?.id === listId) {
-      setActiveListById(listId);
+      const updatedActiveList = updatedLists.find(list => list.id === listId);
+      setActiveCallList(updatedActiveList || null);
     }
   };
 
   // Remove a phone number from a call list
   const removePhoneNumber = (listId: string, numberId: string) => {
-    setCallLists(
-      callLists.map(list => {
-        if (list.id === listId) {
-          return {
-            ...list,
-            phoneNumbers: list.phoneNumbers.filter(n => n.id !== numberId),
-            updatedAt: new Date(),
-          };
-        }
-        return list;
-      })
-    );
-
+    const updatedLists = callLists.map(list => {
+      if (list.id === listId) {
+        return {
+          ...list,
+          phoneNumbers: list.phoneNumbers.filter(n => n.id !== numberId),
+          updatedAt: new Date(),
+        };
+      }
+      return list;
+    });
+    
+    setCallLists(updatedLists);
+    
     // Update active call list if needed
     if (activeCallList?.id === listId) {
-      setActiveListById(listId);
+      const updatedActiveList = updatedLists.find(list => list.id === listId);
+      setActiveCallList(updatedActiveList || null);
     }
   };
 
   // Import multiple phone numbers to a call list
   const importPhoneNumbers = (listId: string, numbers: { number: string; name?: string }[]) => {
-    setCallLists(
-      callLists.map(list => {
-        if (list.id === listId) {
-          const newNumbers: PhoneNumber[] = numbers.map(n => ({
-            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-            number: n.number,
-            name: n.name,
-            status: 'pending',
-          }));
-          return {
-            ...list,
-            phoneNumbers: [...list.phoneNumbers, ...newNumbers],
-            updatedAt: new Date(),
-          };
-        }
-        return list;
-      })
-    );
-
+    const newNumbers: PhoneNumber[] = numbers.map(n => ({
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+      number: n.number,
+      name: n.name,
+      status: 'pending',
+    }));
+    
+    const updatedLists = callLists.map(list => {
+      if (list.id === listId) {
+        return {
+          ...list,
+          phoneNumbers: [...list.phoneNumbers, ...newNumbers],
+          updatedAt: new Date(),
+        };
+      }
+      return list;
+    });
+    
+    setCallLists(updatedLists);
+    
     // Update active call list if needed
     if (activeCallList?.id === listId) {
-      setActiveListById(listId);
+      const updatedActiveList = updatedLists.find(list => list.id === listId);
+      setActiveCallList(updatedActiveList || null);
     }
   };
 
