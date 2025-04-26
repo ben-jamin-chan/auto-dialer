@@ -18,7 +18,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div className="hidden md:flex md:w-64 md:flex-col">
-        <div className="flex flex-col flex-grow pt-5 overflow-y-auto border-r-0 bg-blue-200">
+        <div className="flex flex-col flex-grow pt-5 overflow-y-auto border-r-2 bg-blue-100">
           <div className="flex items-center flex-shrink-0 px-4 mb-5">
             <Phone className="h-8 w-8 text-blue-600" />
             <h1 className="ml-2 text-xl font-bold text-gray-900">AutoDialer</h1>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -17,8 +17,33 @@ import Layout from './components/Layout';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  
+  // Don't redirect while still checking authentication
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>;
+  }
+  
+  return isAuthenticated ? 
+    <>{children}</> : 
+    <Navigate to={`/login?from=${encodeURIComponent(location.pathname)}`} />;
+};
+
+// Auth route component that redirects to home if already logged in
+const AuthRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  // Don't redirect while still checking authentication
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>;
+  }
+  
+  return isAuthenticated ? <Navigate to="/" /> : <>{children}</>;
 };
 
 function App() {
@@ -27,8 +52,16 @@ function App() {
       <Router>
         <Toaster position="top-right" />
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={
+            <AuthRoute>
+              <Login />
+            </AuthRoute>
+          } />
+          <Route path="/register" element={
+            <AuthRoute>
+              <Register />
+            </AuthRoute>
+          } />
           <Route path="/" element={
             <ProtectedRoute>
               <Layout>

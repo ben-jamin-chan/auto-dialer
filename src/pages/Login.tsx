@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Phone, User, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuth();
+  const location = useLocation();
+  const { login, isLoading, isAuthenticated } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [redirectMessage, setRedirectMessage] = useState('');
+  
+  // Check if we were redirected here from a protected route
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const from = params.get('from');
+    
+    if (from) {
+      setRedirectMessage(`Please log in to access ${from}.`);
+    }
+  }, [location]);
+  
+  // If we're already authenticated, redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +66,12 @@ const Login: React.FC = () => {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
               {error}
+            </div>
+          )}
+          
+          {redirectMessage && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm">
+              {redirectMessage}
             </div>
           )}
           

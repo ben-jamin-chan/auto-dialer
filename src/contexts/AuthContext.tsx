@@ -25,18 +25,36 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper function to get user from localStorage
+const getUserFromStorage = (): User | null => {
+  try {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  } catch (error) {
+    console.error('Error parsing user from localStorage:', error);
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(getUserFromStorage());
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check for saved user in localStorage on mount
-    const savedUser = localStorage.getItem('user');
+    const savedUser = getUserFromStorage();
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      setUser(savedUser);
     }
     setIsLoading(false);
   }, []);
+
+  // Save user to localStorage whenever it changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+  }, [user]);
 
   // Login function - would connect to backend in production
   const login = async (email: string, password: string) => {

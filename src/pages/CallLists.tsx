@@ -19,10 +19,12 @@ const CallLists: React.FC = () => {
   const [showNewListForm, setShowNewListForm] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [newListDescription, setNewListDescription] = useState('');
+  const [newListPhoneNumbers, setNewListPhoneNumbers] = useState<string>('');
   
   const [showAddNumberForm, setShowAddNumberForm] = useState(false);
   const [newPhoneNumber, setNewPhoneNumber] = useState('');
   const [newPhoneName, setNewPhoneName] = useState('');
+  const [multiplePhoneNumbers, setMultiplePhoneNumbers] = useState<string>('');
   
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -31,9 +33,35 @@ const CallLists: React.FC = () => {
     e.preventDefault();
     if (newListName.trim()) {
       addCallList(newListName.trim(), newListDescription.trim());
+      
+      // If we have phone numbers in the multi-line input, add them to the list
+      if (newListPhoneNumbers.trim()) {
+        const numbers = newListPhoneNumbers
+          .split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            const [number, name] = line.split(',').map(item => item.trim());
+            return { number, name };
+          })
+          .filter(item => item.number);
+          
+        if (numbers.length > 0) {
+          // Find the id of the newly created list, should be the last one
+          const newList = callLists[callLists.length - 1];
+          importPhoneNumbers(newList.id, numbers);
+        }
+      }
+      
       setNewListName('');
       setNewListDescription('');
+      setNewListPhoneNumbers('');
       setShowNewListForm(false);
+      
+      // Set the active call list to the last one created
+      const newList = callLists.find(list => list.name.trim() === newListName.trim());
+      if (newList) {
+        setActiveCallList(newList.id);
+      }
     }
   };
   
@@ -43,6 +71,27 @@ const CallLists: React.FC = () => {
       addPhoneNumber(activeCallList.id, newPhoneNumber.trim(), newPhoneName.trim());
       setNewPhoneNumber('');
       setNewPhoneName('');
+    }
+  };
+
+  const handleAddMultipleNumbers = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!activeCallList || !multiplePhoneNumbers.trim()) return;
+    
+    const numbers = multiplePhoneNumbers
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const [number, name] = line.split(',').map(item => item.trim());
+        return { number, name };
+      })
+      .filter(item => item.number);
+      
+    if (numbers.length > 0) {
+      importPhoneNumbers(activeCallList.id, numbers);
+      setMultiplePhoneNumbers('');
+      setShowAddNumberForm(false);
     }
   };
   
@@ -138,6 +187,23 @@ const CallLists: React.FC = () => {
                 rows={3}
               />
             </div>
+
+            <div className="mb-6">
+              <label htmlFor="list-phone-numbers" className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Numbers (optional)
+              </label>
+              <textarea
+                id="list-phone-numbers"
+                value={newListPhoneNumbers}
+                onChange={(e) => setNewListPhoneNumbers(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter phone numbers, one per line. Format: number,name (optional)"
+                rows={5}
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Enter each phone number on a new line. You can add a name by adding a comma after the number.
+              </p>
+            </div>
             
             <div className="flex justify-end">
               <button
@@ -202,7 +268,7 @@ const CallLists: React.FC = () => {
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Phone Number
+                      {showAddNumberForm ? 'Hide Form' : 'Add Phone Numbers'}
                     </button>
                     
                     <label className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center cursor-pointer">
@@ -218,45 +284,79 @@ const CallLists: React.FC = () => {
                   </div>
                   
                   {showAddNumberForm && (
-                    <form onSubmit={handleAddNumber} className="bg-gray-50 p-4 rounded-md mb-4">
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="flex-1">
-                          <label htmlFor="phone-number" className="block text-sm font-medium text-gray-700 mb-1">
-                            Phone Number
-                          </label>
-                          <input
-                            id="phone-number"
-                            type="tel"
-                            value={newPhoneNumber}
-                            onChange={(e) => setNewPhoneNumber(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="+1 (234) 567-8900"
-                            required
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label htmlFor="phone-name" className="block text-sm font-medium text-gray-700 mb-1">
-                            Name (optional)
-                          </label>
-                          <input
-                            id="phone-name"
-                            type="text"
-                            value={newPhoneName}
-                            onChange={(e) => setNewPhoneName(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Contact name"
-                          />
-                        </div>
+                    <div className="bg-gray-50 p-4 rounded-md mb-4">
+                      <div className="mb-4">
+                        <h3 className="text-md font-medium text-gray-700 mb-2">Add Single Number</h3>
+                        <form onSubmit={handleAddNumber} className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex-1">
+                            <label htmlFor="phone-number" className="block text-sm font-medium text-gray-700 mb-1">
+                              Phone Number
+                            </label>
+                            <input
+                              id="phone-number"
+                              type="tel"
+                              value={newPhoneNumber}
+                              onChange={(e) => setNewPhoneNumber(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="+1 (234) 567-8900"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label htmlFor="phone-name" className="block text-sm font-medium text-gray-700 mb-1">
+                              Name (optional)
+                            </label>
+                            <input
+                              id="phone-name"
+                              type="text"
+                              value={newPhoneName}
+                              onChange={(e) => setNewPhoneName(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Contact name"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              type="submit"
+                              disabled={!newPhoneNumber.trim()}
+                              className="h-10 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </form>
                       </div>
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          type="submit"
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                          Add Number
-                        </button>
+                      
+                      <div className="border-t border-gray-200 pt-4">
+                        <h3 className="text-md font-medium text-gray-700 mb-2">Add Multiple Numbers</h3>
+                        <form onSubmit={handleAddMultipleNumbers}>
+                          <div className="mb-2">
+                            <label htmlFor="multiple-numbers" className="block text-sm font-medium text-gray-700 mb-1">
+                              Phone Numbers (one per line)
+                            </label>
+                            <textarea
+                              id="multiple-numbers"
+                              value={multiplePhoneNumbers}
+                              onChange={(e) => setMultiplePhoneNumbers(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Enter phone numbers, one per line. Format: number,name (optional)"
+                              rows={5}
+                            />
+                            <p className="mt-1 text-sm text-gray-500">
+                              Enter each phone number on a new line. You can add a name by adding a comma after the number.
+                            </p>
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={!multiplePhoneNumbers.trim()}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                            >
+                              Add All Numbers
+                            </button>
+                          </div>
+                        </form>
                       </div>
-                    </form>
+                    </div>
                   )}
                   
                   {csvFile && (

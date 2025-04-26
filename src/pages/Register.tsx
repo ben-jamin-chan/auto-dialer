@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Phone, User, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuth();
+  const location = useLocation();
+  const { register, isLoading, isAuthenticated } = useAuth();
+  
+  // If we're already authenticated, redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
