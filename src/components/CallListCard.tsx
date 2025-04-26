@@ -1,14 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, User, Clock, Check, X } from 'lucide-react';
+import { Phone, Clock, Check, X, Trash2 } from 'lucide-react';
 import { CallList } from '../contexts/CallContext';
 
 interface CallListCardProps {
   callList: CallList;
   onSelect: () => void;
+  onDelete?: (id: string) => void;
 }
 
-const CallListCard: React.FC<CallListCardProps> = ({ callList, onSelect }) => {
+const CallListCard: React.FC<CallListCardProps> = ({ callList, onSelect, onDelete }) => {
   const navigate = useNavigate();
   
   const totalNumbers = callList.phoneNumbers.length;
@@ -17,11 +18,29 @@ const CallListCard: React.FC<CallListCardProps> = ({ callList, onSelect }) => {
   const pendingCalls = callList.phoneNumbers.filter(n => n.status === 'pending').length;
   
   const formattedDate = new Date(callList.updatedAt).toLocaleDateString();
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete && window.confirm(`Are you sure you want to delete "${callList.name}"?`)) {
+      onDelete(callList.id);
+    }
+  };
   
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg">
       <div className="p-5">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">{callList.name}</h3>
+        <div className="flex justify-between items-start mb-1">
+          <h3 className="text-lg font-semibold text-gray-900">{callList.name}</h3>
+          {onDelete && (
+            <button 
+              onClick={handleDelete}
+              className="text-red-500 hover:text-red-700 focus:outline-none"
+              title="Delete call list"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         {callList.description && (
           <p className="text-sm text-gray-500 mb-4">{callList.description}</p>
         )}

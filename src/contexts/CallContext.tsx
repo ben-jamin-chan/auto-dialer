@@ -1,5 +1,9 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useTwilio } from './TwilioContext';
+
+// Define localStorage key for call lists
+const CALL_LISTS_STORAGE_KEY = 'call_lists';
+const ACTIVE_CALL_LIST_STORAGE_KEY = 'active_call_list_id';
 
 export interface PhoneNumber {
   id: string;
@@ -43,6 +47,7 @@ interface CallContextType {
   pauseCallSession: () => void;
   stopCallSession: () => void;
   updateCallStatus: (numberId: string, status: PhoneNumber['status'], duration?: number) => void;
+  deleteCallList: (listId: string) => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -61,6 +66,67 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeCallList, setActiveCallList] = useState<CallList | null>(null);
   const [isCallSessionActive, setIsCallSessionActive] = useState(false);
   const [currentCall, setCurrentCall] = useState<PhoneNumber | null>(null);
+
+  // Load call lists from localStorage on mount
+  useEffect(() => {
+    const savedCallLists = localStorage.getItem(CALL_LISTS_STORAGE_KEY);
+    if (savedCallLists) {
+      try {
+        // Parse the stored JSON string
+        const parsedLists = JSON.parse(savedCallLists);
+        
+        // Convert string dates back to Date objects
+        const processedLists = parsedLists.map((list: Omit<CallList, 'createdAt' | 'updatedAt'> & {
+          createdAt: string;
+          updatedAt: string;
+          phoneNumbers: Array<Omit<PhoneNumber, 'callStartTime' | 'callEndTime'> & {
+            callStartTime?: string;
+            callEndTime?: string;
+          }>;
+        }) => ({
+          ...list,
+          createdAt: new Date(list.createdAt),
+          updatedAt: new Date(list.updatedAt),
+          phoneNumbers: list.phoneNumbers.map((phone) => ({
+            ...phone,
+            callStartTime: phone.callStartTime ? new Date(phone.callStartTime) : undefined,
+            callEndTime: phone.callEndTime ? new Date(phone.callEndTime) : undefined,
+          })),
+        }));
+        
+        setCallLists(processedLists);
+        
+        // Restore active call list if it exists
+        const activeListId = localStorage.getItem(ACTIVE_CALL_LIST_STORAGE_KEY);
+        if (activeListId) {
+          const activeList = processedLists.find((list: CallList) => list.id === activeListId);
+          if (activeList) {
+            setActiveCallList(activeList);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing saved call lists:', error);
+      }
+    }
+  }, []);
+
+  // Save call lists to localStorage whenever they change
+  useEffect(() => {
+    if (callLists.length > 0) {
+      localStorage.setItem(CALL_LISTS_STORAGE_KEY, JSON.stringify(callLists));
+    } else {
+      localStorage.removeItem(CALL_LISTS_STORAGE_KEY);
+    }
+  }, [callLists]);
+
+  // Save active call list ID whenever it changes
+  useEffect(() => {
+    if (activeCallList) {
+      localStorage.setItem(ACTIVE_CALL_LIST_STORAGE_KEY, activeCallList.id);
+    } else {
+      localStorage.removeItem(ACTIVE_CALL_LIST_STORAGE_KEY);
+    }
+  }, [activeCallList]);
 
   // Calculate call metrics based on active call list
   const callMetrics: CallMetrics = {
@@ -271,6 +337,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Delete a call list by ID
+  const deleteCallList = (listId: string) => {
+    setCallLists(callLists.filter(list => list.id !== listId));
+    if (activeCallList?.id === listId) {
+      setActiveCallList(null);
+    }
+  };
+
   return (
     <CallContext.Provider
       value={{
@@ -288,6 +362,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pauseCallSession,
         stopCallSession,
         updateCallStatus,
+        deleteCallList,
       }}
     >
       {children}

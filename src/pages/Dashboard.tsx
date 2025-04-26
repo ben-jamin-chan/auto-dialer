@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, CheckCircle, XCircle, Clock, List, PlayCircle } from 'lucide-react';
 import { useCall } from '../contexts/CallContext';
@@ -8,12 +8,16 @@ import CallController from '../components/CallController';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { callLists, callMetrics, activeCallList, setActiveCallList, isCallSessionActive } = useCall();
+  const { callLists, callMetrics, activeCallList, setActiveCallList, isCallSessionActive, deleteCallList } = useCall();
   
   // Get the most recently updated call lists (max 2)
   const recentCallLists = [...callLists]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 2);
+  
+  const handleDeleteCallList = (listId: string) => {
+    deleteCallList(listId);
+  };
   
   return (
     <div className="p-6">
@@ -78,6 +82,7 @@ const Dashboard: React.FC = () => {
                   key={callList.id}
                   callList={callList}
                   onSelect={() => setActiveCallList(callList.id)}
+                  onDelete={handleDeleteCallList}
                 />
               ))}
             </div>

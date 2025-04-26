@@ -5,7 +5,16 @@ import CallListCard from '../components/CallListCard';
 import PhoneNumberList from '../components/PhoneNumberList';
 
 const CallLists: React.FC = () => {
-  const { callLists, activeCallList, addCallList, setActiveCallList, addPhoneNumber, removePhoneNumber, importPhoneNumbers } = useCall();
+  const { 
+    callLists, 
+    activeCallList, 
+    addCallList, 
+    setActiveCallList, 
+    addPhoneNumber, 
+    removePhoneNumber, 
+    importPhoneNumbers,
+    deleteCallList 
+  } = useCall();
   
   const [showNewListForm, setShowNewListForm] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -66,6 +75,10 @@ const CallLists: React.FC = () => {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleDeleteCallList = (listId: string) => {
+    deleteCallList(listId);
   };
   
   return (
@@ -156,6 +169,7 @@ const CallLists: React.FC = () => {
                   key={list.id}
                   callList={list}
                   onSelect={() => setActiveCallList(list.id)}
+                  onDelete={handleDeleteCallList}
                 />
               ))}
             </div>
