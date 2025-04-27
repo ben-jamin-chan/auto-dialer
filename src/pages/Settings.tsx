@@ -11,6 +11,7 @@ const Settings: React.FC = () => {
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState('');
   const [callRetryAttempts, setCallRetryAttempts] = useState(0);
   const [callRetryDelay, setCallRetryDelay] = useState(60);
+  const [callDuration, setCallDuration] = useState(30);
   const [isSaving, setIsSaving] = useState(false);
   
   // Mask character for sensitive fields
@@ -22,6 +23,7 @@ const Settings: React.FC = () => {
     setTwilioPhoneNumber(savedSettings.phoneNumber || '');
     setCallRetryAttempts(savedSettings.retryAttempts || 3);
     setCallRetryDelay(savedSettings.retryDelay || 60);
+    setCallDuration(savedSettings.callDuration || 30);
     
     // Mask sensitive credentials
     setTwilioAccountSid(
@@ -47,6 +49,7 @@ const Settings: React.FC = () => {
         phoneNumber: twilioPhoneNumber,
         retryAttempts: callRetryAttempts,
         retryDelay: callRetryDelay,
+        callDuration: callDuration,
       };
 
       // Only update credentials if they were changed (not masked values)
@@ -180,9 +183,25 @@ const Settings: React.FC = () => {
             </div>
             
             <div className="mb-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Call Retry Settings</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Call Settings</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="call-duration" className="block text-sm font-medium text-gray-700 mb-1">
+                    Call Duration (seconds)
+                  </label>
+                  <input
+                    id="call-duration"
+                    value={callDuration}
+                    onChange={(e) => setCallDuration(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Duration of each outbound call (5-30 seconds)
+                  </p>
+                </div>
+                
                 <div>
                   <label htmlFor="call-retry-attempts" className="block text-sm font-medium text-gray-700 mb-1">
                     Retry Attempts
@@ -201,7 +220,9 @@ const Settings: React.FC = () => {
                     Number of times to retry failed calls (0-5)
                   </p>
                 </div>
-                
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <label htmlFor="call-retry-delay" className="block text-sm font-medium text-gray-700 mb-1">
                     Retry Delay (seconds)

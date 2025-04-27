@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, StopCircle, Phone } from 'lucide-react';
 import { useCall } from '../contexts/CallContext';
+import { useTwilio } from '../contexts/TwilioContext';
 
 const CallController: React.FC = () => {
   const {
@@ -14,6 +15,7 @@ const CallController: React.FC = () => {
     updateCallStatus,
   } = useCall();
   
+  const { settings } = useTwilio();
   const [callTimer, setCallTimer] = useState(0);
   
   // Handle call duration timer
@@ -25,11 +27,11 @@ const CallController: React.FC = () => {
         setCallTimer((prev) => {
           const newTime = prev + 1;
           
-          // Auto-terminate call after 30 seconds
-          if (newTime >= 30) {
+          // Auto-terminate call after custom call duration
+          if (newTime >= settings.callDuration) {
             clearInterval(interval);
-            // Mark call as completed after 30 seconds
-            updateCallStatus(currentCall.id, 'completed', 30);
+            // Mark call as completed after custom call duration
+            updateCallStatus(currentCall.id, 'completed', newTime);
             return 0;
           }
           
@@ -43,7 +45,7 @@ const CallController: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isCallSessionActive, currentCall, updateCallStatus]);
+  }, [isCallSessionActive, currentCall, updateCallStatus, settings.callDuration]);
   
   const handleStart = () => {
     if (!activeCallList) return;

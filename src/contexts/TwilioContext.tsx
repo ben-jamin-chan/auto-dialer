@@ -8,6 +8,7 @@ interface TwilioSettings {
   phoneNumber: string;
   retryAttempts: number;
   retryDelay: number;
+  callDuration: number;
 }
 
 interface TwilioContextType {
@@ -56,6 +57,7 @@ export const TwilioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     phoneNumber: '',
     retryAttempts: 2,
     retryDelay: 60,
+    callDuration: 30,
   });
 
   useEffect(() => {

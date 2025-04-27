@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { VoiceResponse } from 'twilio';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,14 +12,13 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-    <Response>
-      <Say>This is an automated call. The call will end in 30 seconds.</Say>
-      <Pause length="25"/>
-      <Say>Call ending now. Goodbye.</Say>
-    </Response>`;
+  const twiml = new VoiceResponse();
+  twiml.say({
+    voice: 'alice',
+    language: 'en-US',
+  }, 'This is an automated call. The call will end automatically when completed.');
 
-  return new Response(twiml, {
+  return new Response(twiml.toString(), {
     headers: {
       ...corsHeaders,
       'Content-Type': 'application/xml',

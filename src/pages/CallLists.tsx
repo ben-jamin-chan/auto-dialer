@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Upload, Phone, X } from 'lucide-react';
 import { useCall } from '../contexts/CallContext';
 import CallListCard from '../components/CallListCard';
@@ -29,39 +29,76 @@ const CallLists: React.FC = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   
+  // Reference to store pending numbers for a newly created list
+  const pendingOperation = useRef<{
+    action: 'create_list',
+    listName: string,
+    listDescription: string,
+    numbers: { number: string; name?: string }[]
+  } | null>(null);
+
+  // Track previous length of callLists to detect additions
+  const prevCallListsLength = useRef(callLists.length);
+  
+  // Effect to handle the creation of a new list with numbers
+  useEffect(() => {
+    // Check if we have a pending operation and the callLists length has increased
+    if (pendingOperation.current && pendingOperation.current.action === 'create_list' 
+        && callLists.length > prevCallListsLength.current) {
+      
+      // Find the newly created list
+      const newList = callLists[callLists.length - 1];
+      if (newList) {
+        // Set as active list
+        setActiveCallList(newList.id);
+        
+        // Add phone numbers if any
+        if (pendingOperation.current.numbers.length > 0) {
+          importPhoneNumbers(newList.id, pendingOperation.current.numbers);
+        }
+        
+        // Clear the pending operation
+        pendingOperation.current = null;
+      }
+    }
+    
+    // Update the previous length reference
+    prevCallListsLength.current = callLists.length;
+  }, [callLists, importPhoneNumbers, setActiveCallList]);
+  
   const handleCreateList = (e: React.FormEvent) => {
     e.preventDefault();
     if (newListName.trim()) {
-      addCallList(newListName.trim(), newListDescription.trim());
+      const listName = newListName.trim();
+      const listDescription = newListDescription.trim();
       
-      // If we have phone numbers in the multi-line input, add them to the list
-      if (newListPhoneNumbers.trim()) {
-        const numbers = newListPhoneNumbers
+      // Parse phone numbers
+      const numbersToAdd = newListPhoneNumbers.trim() ? 
+        newListPhoneNumbers
           .split('\n')
           .filter(line => line.trim())
           .map(line => {
             const [number, name] = line.split(',').map(item => item.trim());
             return { number, name };
           })
-          .filter(item => item.number);
-          
-        if (numbers.length > 0) {
-          // Find the id of the newly created list, should be the last one
-          const newList = callLists[callLists.length - 1];
-          importPhoneNumbers(newList.id, numbers);
-        }
-      }
+          .filter(item => item.number) : [];
       
+      // Store the operation details for the useEffect to handle
+      pendingOperation.current = {
+        action: 'create_list',
+        listName,
+        listDescription,
+        numbers: numbersToAdd
+      };
+      
+      // Add the call list
+      addCallList(listName, listDescription);
+      
+      // Reset form fields
       setNewListName('');
       setNewListDescription('');
       setNewListPhoneNumbers('');
       setShowNewListForm(false);
-      
-      // Set the active call list to the last one created
-      const newList = callLists.find(list => list.name.trim() === newListName.trim());
-      if (newList) {
-        setActiveCallList(newList.id);
-      }
     }
   };
   
