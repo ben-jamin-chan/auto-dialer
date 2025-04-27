@@ -13,7 +13,7 @@ interface TwilioSettings {
 
 interface TwilioContextType {
   settings: TwilioSettings;
-  saveSettings: (settings: TwilioSettings) => Promise<void>;
+  saveSettings: (settings: Partial<TwilioSettings>) => Promise<void>;
   makeCall: (to: string) => Promise<void>;
   makeDirectCall: (to: string) => Promise<void>;
 }
@@ -67,25 +67,34 @@ export const TwilioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
-  const saveSettings = async (newSettings: TwilioSettings) => {
+  const saveSettings = async (newSettings: Partial<TwilioSettings>) => {
     try {
-      if (!newSettings.accountSid || !newSettings.authToken || !newSettings.phoneNumber) {
+      // For complete new settings, enforce required fields
+      if (
+        'accountSid' in newSettings && 
+        'authToken' in newSettings && 
+        'phoneNumber' in newSettings && 
+        (!newSettings.accountSid || !newSettings.authToken || !newSettings.phoneNumber)
+      ) {
         throw new Error('Please fill in all required Twilio settings');
       }
 
-      // Validate phone number format
-      const phoneNumber = newSettings.phoneNumber.replace(/\D/g, '');
-      if (!phoneNumber) {
-        throw new Error('Invalid phone number format');
+      // Validate phone number format if provided
+      if (newSettings.phoneNumber) {
+        const phoneNumber = newSettings.phoneNumber.replace(/\D/g, '');
+        if (!phoneNumber) {
+          throw new Error('Invalid phone number format');
+        }
+        newSettings.phoneNumber = `+${phoneNumber}`; // Ensure E.164 format
       }
 
-      const settings = {
+      const updatedSettings = {
+        ...settings,
         ...newSettings,
-        phoneNumber: `+${phoneNumber}`, // Ensure E.164 format
       };
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-      setSettings(settings);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      setSettings(updatedSettings);
       toast.success('Settings saved successfully');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save settings');
@@ -129,6 +138,8 @@ export const TwilioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           to: `+${toNumber}`, // Ensure E.164 format
           from: settings.phoneNumber,
           userId: userId,
+          timeout: settings.callDuration, // Pass call duration to server
+          statusCallback: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/call-status`, // Status callback URL
         }),
       });
 
@@ -183,7 +194,11 @@ export const TwilioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           body: new URLSearchParams({
             To: `+${toNumber}`,
             From: settings.phoneNumber,
-            Url: 'http://demo.twilio.com/docs/voice.xml' // Default TwiML
+            Url: 'http://demo.twilio.com/docs/voice.xml', // Default TwiML
+            Timeout: `${settings.callDuration}`, // Set timeout based on user settings
+            StatusCallback: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/call-status`,
+            StatusCallbackMethod: 'POST',
+            StatusCallbackEvent: 'initiated,ringing,answered,completed'
           }).toString()
         });
 

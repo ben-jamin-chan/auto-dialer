@@ -17,12 +17,26 @@ const CallController: React.FC = () => {
   
   const { settings } = useTwilio();
   const [callTimer, setCallTimer] = useState(0);
+  const [callAnswered, setCallAnswered] = useState(false);
   
-  // Handle call duration timer
+  // Reset call state when current call changes
+  useEffect(() => {
+    // Reset timer and answered status when call changes
+    setCallTimer(0);
+    setCallAnswered(false);
+    
+    // If there's a current call and it's in-progress, mark as answered
+    if (currentCall && currentCall.status === 'in-progress') {
+      setCallAnswered(true);
+    }
+  }, [currentCall]);
+  
+  // Handle call duration timer - only start counting when the call is answered
   useEffect(() => {
     let interval: number | undefined;
     
-    if (isCallSessionActive && currentCall) {
+    // Only start the timer if the call is active, there is a current call, and it's been answered
+    if (isCallSessionActive && currentCall && callAnswered) {
       interval = window.setInterval(() => {
         setCallTimer((prev) => {
           const newTime = prev + 1;
@@ -38,14 +52,19 @@ const CallController: React.FC = () => {
           return newTime;
         });
       }, 1000);
-    } else {
-      setCallTimer(0);
     }
     
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isCallSessionActive, currentCall, updateCallStatus, settings.callDuration]);
+  }, [isCallSessionActive, currentCall, updateCallStatus, settings.callDuration, callAnswered]);
+  
+  // Handle call status changes
+  useEffect(() => {
+    if (currentCall && currentCall.status === 'in-progress') {
+      setCallAnswered(true);
+    }
+  }, [currentCall?.status]);
   
   const handleStart = () => {
     if (!activeCallList) return;
@@ -76,7 +95,11 @@ const CallController: React.FC = () => {
                   Currently calling: {currentCall.number}
                 </p>
                 <p className="text-sm text-blue-700">
-                  {currentCall.name && `${currentCall.name} • `}Call duration: {callTimer}s
+                  {currentCall.name && `${currentCall.name} • `}
+                  {callAnswered 
+                    ? `Call duration: ${callTimer}s`
+                    : 'Waiting for answer...'
+                  }
                 </p>
               </div>
             </div>

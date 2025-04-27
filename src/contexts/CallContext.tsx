@@ -290,7 +290,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ...n,
                   status,
                   callDuration: duration,
-                  ...(status === 'in-progress' ? { callStartTime: new Date() } : {}),
+                  // Only set callStartTime on first transition to in-progress
+                  ...(status === 'in-progress' && !n.callStartTime ? { callStartTime: new Date() } : {}),
                   ...(status === 'completed' || status === 'failed' ? { callEndTime: new Date() } : {}),
                 };
               }
