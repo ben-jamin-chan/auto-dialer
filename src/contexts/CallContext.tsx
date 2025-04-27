@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useTwilio } from './TwilioContext';
+import toast from 'react-hot-toast';
 
 // Define localStorage key for call lists
 const CALL_LISTS_STORAGE_KEY = 'call_lists';
@@ -9,7 +10,7 @@ export interface PhoneNumber {
   id: string;
   number: string;
   name?: string;
-  status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  status: 'pending' | 'in-progress' | 'completed' | 'failed' | 'declined';
   callDuration?: number;
   callStartTime?: Date;
   callEndTime?: Date;
@@ -48,6 +49,7 @@ interface CallContextType {
   stopCallSession: () => void;
   updateCallStatus: (numberId: string, status: PhoneNumber['status'], duration?: number) => void;
   deleteCallList: (listId: string) => void;
+  handleTwilioStatusUpdate: (callSid: string, status: string) => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -132,7 +134,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const callMetrics: CallMetrics = {
     total: activeCallList?.phoneNumbers.length || 0,
     completed: activeCallList?.phoneNumbers.filter(n => n.status === 'completed').length || 0,
-    failed: activeCallList?.phoneNumbers.filter(n => n.status === 'failed').length || 0,
+    failed: activeCallList?.phoneNumbers.filter(n => n.status === 'failed' || n.status === 'declined').length || 0,
     remaining: activeCallList?.phoneNumbers.filter(n => n.status === 'pending').length || 0,
   };
 
@@ -152,7 +154,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Set active call list by ID
   const setActiveListById = (listId: string) => {
     const list = callLists.find(list => list.id === listId);
-    setActiveCallList(list || null);
+    
+    // Make sure we're setting the updated list from the latest state
+    if (list) {
+      // Using a callback to ensure we're working with the most up-to-date state
+      setActiveCallList(list);
+    } else {
+      setActiveCallList(null);
+    }
   };
 
   // Add a phone number to a call list
@@ -279,8 +288,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateCallStatus = (numberId: string, status: PhoneNumber['status'], duration?: number) => {
     if (!activeCallList) return;
 
-    setCallLists(
-      callLists.map(list => {
+    // Handle call declined or failed cases
+    const isCallDeclined = (status === 'failed' || status === 'declined') && currentCall?.id === numberId;
+    
+    // Use functional update to ensure we're working with the latest state
+    setCallLists(prevLists => {
+      const updatedLists = prevLists.map(list => {
         if (list.id === activeCallList.id) {
           return {
             ...list,
@@ -292,7 +305,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   callDuration: duration,
                   // Only set callStartTime on first transition to in-progress
                   ...(status === 'in-progress' && !n.callStartTime ? { callStartTime: new Date() } : {}),
-                  ...(status === 'completed' || status === 'failed' ? { callEndTime: new Date() } : {}),
+                  ...(status === 'completed' || status === 'failed' || status === 'declined' ? { callEndTime: new Date() } : {}),
                 };
               }
               return n;
@@ -301,45 +314,78 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
         return list;
-      })
-    );
+      });
+      
+      // Find the updated list to immediately update activeCallList
+      const updatedActiveList = updatedLists.find(list => list.id === activeCallList.id);
+      if (updatedActiveList) {
+        // Schedule activeCallList update on next tick to ensure it happens after callLists update
+        setTimeout(() => setActiveCallList(updatedActiveList), 0);
+      }
+      
+      return updatedLists;
+    });
 
-    // Update active call list
-    setActiveListById(activeCallList.id);
-
-    // If current call is completed or failed, move to next call
-    if (currentCall?.id === numberId && (status === 'completed' || status === 'failed')) {
+    // If current call is completed, failed, or declined, move to next call
+    if (currentCall?.id === numberId && (status === 'completed' || status === 'failed' || status === 'declined')) {
       if (isCallSessionActive) {
-        // Find the next pending call
-        const updatedList = callLists.find(list => list.id === activeCallList.id);
-        if (updatedList) {
-          const nextCall = updatedList.phoneNumbers.find(n => n.status === 'pending');
-          if (nextCall) {
-            setCurrentCall(nextCall);
-            // Update the status to in-progress
-            updateCallStatus(nextCall.id, 'in-progress');
-            
-            // Try direct call first (bypasses authentication), then fallback to normal call
-            makeDirectCall(nextCall.number)
-              .catch(error => {
-                console.error('Direct call failed, trying normal call:', error);
-                // Fallback to normal call through Supabase
-                return makeCall(nextCall.number);
-              })
-              .catch(error => {
-                console.error('All call methods failed:', error);
-                // If all call methods fail, mark as failed and move to the next call
-                updateCallStatus(nextCall.id, 'failed');
-              });
-          } else {
-            // No more calls to make
-            setCurrentCall(null);
-            setIsCallSessionActive(false);
+        // Using setTimeout to ensure we access updated state after the list update
+        setTimeout(() => {
+          // Get the current lists to ensure we're working with the latest state
+          const updatedList = callLists.find(list => list.id === activeCallList.id);
+          if (updatedList) {
+            const nextCall = updatedList.phoneNumbers.find(n => n.status === 'pending');
+            if (nextCall) {
+              // If we needed to fail the current call, show a notification
+              if (isCallDeclined) {
+                const statusText = status === 'declined' ? 'declined' : 'failed';
+                toast.error(`Call to ${currentCall.number} was ${statusText}. Moving to next number.`);
+              }
+              
+              setCurrentCall(nextCall);
+              // Update the status to in-progress
+              updateCallStatus(nextCall.id, 'in-progress');
+              
+              // Try direct call first (bypasses authentication), then fallback to normal call
+              makeDirectCall(nextCall.number)
+                .catch(error => {
+                  console.error('Direct call failed, trying normal call:', error);
+                  // Fallback to normal call through Supabase
+                  return makeCall(nextCall.number);
+                })
+                .catch(error => {
+                  console.error('All call methods failed:', error);
+                  // If all call methods fail, mark as failed and move to the next call
+                  updateCallStatus(nextCall.id, 'failed');
+                });
+            } else {
+              // No more calls to make
+              setCurrentCall(null);
+              setIsCallSessionActive(false);
+            }
           }
-        }
+        }, 10); // Small delay to ensure state has been updated
       } else {
         setCurrentCall(null);
       }
+    }
+  };
+
+  // Handle Twilio call status updates
+  const handleTwilioStatusUpdate = (callSid: string, status: string) => {
+    if (!currentCall) return;
+    
+    // Map Twilio status to our app status
+    console.log(`Call ${callSid} status: ${status}`);
+    
+    if (status === 'busy' || status === 'no-answer' || status === 'canceled') {
+      // Call was declined or not answered
+      updateCallStatus(currentCall.id, 'declined');
+    } else if (status === 'failed') {
+      // Technical failure
+      updateCallStatus(currentCall.id, 'failed');
+    } else if (status === 'completed') {
+      updateCallStatus(currentCall.id, 'completed');
     }
   };
 
@@ -369,6 +415,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         stopCallSession,
         updateCallStatus,
         deleteCallList,
+        handleTwilioStatusUpdate,
       }}
     >
       {children}

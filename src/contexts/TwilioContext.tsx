@@ -140,6 +140,7 @@ export const TwilioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           userId: userId,
           timeout: settings.callDuration, // Pass call duration to server
           statusCallback: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/call-status`, // Status callback URL
+          statusCallbackEvents: ['initiated','ringing','answered','completed','busy','no-answer','failed','canceled']
         }),
       });
 
@@ -198,7 +199,7 @@ export const TwilioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             Timeout: `${settings.callDuration}`, // Set timeout based on user settings
             StatusCallback: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/call-status`,
             StatusCallbackMethod: 'POST',
-            StatusCallbackEvent: 'initiated,ringing,answered,completed'
+            StatusCallbackEvent: 'initiated,ringing,answered,completed,busy,no-answer,failed,canceled'
           }).toString()
         });
 

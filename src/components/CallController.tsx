@@ -3,6 +3,8 @@ import { Play, Pause, StopCircle, Phone } from 'lucide-react';
 import { useCall } from '../contexts/CallContext';
 import { useTwilio } from '../contexts/TwilioContext';
 
+const CALL_TIMEOUT = 30000; // 30 seconds timeout for waiting for an answer
+
 const CallController: React.FC = () => {
   const {
     activeCallList,
@@ -18,12 +20,14 @@ const CallController: React.FC = () => {
   const { settings } = useTwilio();
   const [callTimer, setCallTimer] = useState(0);
   const [callAnswered, setCallAnswered] = useState(false);
+  const [waitingTimer, setWaitingTimer] = useState(0);
   
   // Reset call state when current call changes
   useEffect(() => {
     // Reset timer and answered status when call changes
     setCallTimer(0);
     setCallAnswered(false);
+    setWaitingTimer(0);
     
     // If there's a current call and it's in-progress, mark as answered
     if (currentCall && currentCall.status === 'in-progress') {
@@ -59,10 +63,39 @@ const CallController: React.FC = () => {
     };
   }, [isCallSessionActive, currentCall, updateCallStatus, settings.callDuration, callAnswered]);
   
+  // Handle waiting for answer timer
+  useEffect(() => {
+    let waitingInterval: number | undefined;
+    
+    // Start the waiting timer if there's a current call that's not yet answered
+    if (isCallSessionActive && currentCall && !callAnswered) {
+      waitingInterval = window.setInterval(() => {
+        setWaitingTimer((prev) => {
+          const newTime = prev + 1000; // Increment by 1 second (1000ms)
+          
+          // If waiting too long (call declined or not answered), move to next number
+          if (newTime >= CALL_TIMEOUT) {
+            clearInterval(waitingInterval);
+            // Mark call as declined after timeout
+            updateCallStatus(currentCall.id, 'declined');
+            return 0;
+          }
+          
+          return newTime;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (waitingInterval) clearInterval(waitingInterval);
+    };
+  }, [isCallSessionActive, currentCall, callAnswered, updateCallStatus]);
+  
   // Handle call status changes
   useEffect(() => {
     if (currentCall && currentCall.status === 'in-progress') {
       setCallAnswered(true);
+      setWaitingTimer(0); // Reset waiting timer once answered
     }
   }, [currentCall?.status]);
   

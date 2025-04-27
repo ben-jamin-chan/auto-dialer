@@ -124,7 +124,7 @@ const CallSession: React.FC = () => {
           <div className="bg-white rounded-lg shadow-md p-5">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Phone Numbers</h2>
             
-            <PhoneNumberList phoneNumbers={activeCallList.phoneNumbers} />
+            <PhoneNumberList phoneNumbers={activeCallList.phoneNumbers} simpleView={true} />
           </div>
         </div>
       </div>
