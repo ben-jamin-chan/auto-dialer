@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Phone, Check, X, Clock, ChevronDown, Loader2 } from 'lucide-react';
 import { PhoneNumber } from '../contexts/CallContext';
 import { useCall } from '../contexts/CallContext';
@@ -8,16 +8,32 @@ interface PhoneNumberListProps {
   phoneNumbers: PhoneNumber[];
   onRemove?: (id: string) => void;
   simpleView?: boolean;
+  listView?: boolean;
 }
 
 const PhoneNumberList: React.FC<PhoneNumberListProps> = ({ 
   phoneNumbers, 
   onRemove,
-  simpleView = false
+  simpleView = false,
+  listView = false
 }) => {
   const { updateCallStatus } = useCall();
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowStatusMenu(null);
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   
   const getStatusIcon = (status: PhoneNumber['status']) => {
     switch (status) {
@@ -65,21 +81,16 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
   };
 
   const handleStatusChange = (phoneNumber: PhoneNumber, newStatus: PhoneNumber['status']) => {
-    // Set the updating state to show loading indicator
     setUpdatingStatus(phoneNumber.id);
     
     try {
-      // Update the call status
       updateCallStatus(phoneNumber.id, newStatus, phoneNumber.callDuration || 0);
       
-      // Show success notification
       toast.success(`Status updated to ${getStatusText(newStatus)}`);
     } catch (error) {
       console.error('Failed to update status:', error);
       toast.error('Failed to update status. Please try again.');
     } finally {
-      // Ensure the menu closes and updating state is cleared after a small delay
-      // This delay gives visual feedback to the user that something happened
       setTimeout(() => {
         setUpdatingStatus(null);
         setShowStatusMenu(null);
@@ -100,6 +111,72 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
       </div>
     );
   }
+  
+  if (listView) {
+    return (
+      <div>
+        {phoneNumbers.map((phoneNumber) => (
+          <div key={phoneNumber.id} className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-center">
+              <Phone className="h-4 w-4 text-gray-400 mr-3" />
+              <span>{phoneNumber.number}</span>
+            </div>
+
+            {/* Right Side (Status Button + X Button) */}
+            <div className="flex itmes-center relative" ref={dropdownRef}>
+              <button 
+                onClick={() => updatingStatus ? null : setShowStatusMenu(showStatusMenu === phoneNumber.id ? null : phoneNumber.id)}
+                disabled={updatingStatus !== null}
+                className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm ${getStatusClass(phoneNumber.status)} ${updatingStatus ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {updatingStatus === phoneNumber.id ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{getStatusText(phoneNumber.status)}</span>
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </>
+                )}
+              </button>
+              
+              {showStatusMenu === phoneNumber.id && !updatingStatus && (
+                <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+                  <div className="py-1">
+                    {getStatusOptions(phoneNumber.status).map(status => (
+                      <button
+                        key={status}
+                        onClick={() => handleStatusChange(phoneNumber, status)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        {status === 'completed' && <Check className="h-3 w-3 inline mr-2 text-green-500" />}
+                        {status === 'failed' && <X className="h-3 w-3 inline mr-2 text-red-500" />}
+                        {status === 'declined' && <X className="h-3 w-3 inline mr-2 text-orange-500" />}
+                        {status === 'in-progress' && <Clock className="h-3 w-3 inline mr-2 text-yellow-500" />}
+                        {status === 'pending' && <Phone className="h-3 w-3 inline mr-2 text-gray-400" />}
+                        {getStatusText(status)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {onRemove && (
+                <button
+                  onClick={() => onRemove(phoneNumber.id)}
+                  className="ml-2 text-red-500 hover:text-red-700 border"
+                  disabled={updatingStatus !== null}
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (simpleView) {
     return (
@@ -116,7 +193,7 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
               </div>
             </div>
             
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => updatingStatus ? null : setShowStatusMenu(showStatusMenu === phoneNumber.id ? null : phoneNumber.id)}
                 disabled={updatingStatus !== null}
@@ -136,7 +213,7 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
               </button>
               
               {showStatusMenu === phoneNumber.id && !updatingStatus && (
-                <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-50 border border-gray-200">
                   <div className="py-1">
                     {getStatusOptions(phoneNumber.status).map(status => (
                       <button
@@ -182,7 +259,7 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
                 </div>
               </div>
               <div className="flex items-center">
-                <div className="relative">
+                <div className="relative" ref={dropdownRef}>
                   <button 
                     onClick={() => updatingStatus ? null : setShowStatusMenu(showStatusMenu === phoneNumber.id ? null : phoneNumber.id)}
                     disabled={updatingStatus !== null}
@@ -202,7 +279,7 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
                   </button>
                   
                   {showStatusMenu === phoneNumber.id && !updatingStatus && (
-                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-50 border border-gray-200">
                       <div className="py-1">
                         {getStatusOptions(phoneNumber.status).map(status => (
                           <button
@@ -223,7 +300,7 @@ const PhoneNumberList: React.FC<PhoneNumberListProps> = ({
                   )}
                 </div>
 
-                {phoneNumber.callDuration && (
+                {phoneNumber.callDuration && phoneNumber.callDuration > 0 && (
                   <span className="ml-2 text-sm text-gray-500">
                     {phoneNumber.callDuration}s
                   </span>

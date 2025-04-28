@@ -430,6 +430,7 @@ const CallLists: React.FC = () => {
                 <PhoneNumberList
                   phoneNumbers={activeCallList.phoneNumbers}
                   onRemove={(id) => removePhoneNumber(activeCallList.id, id)}
+                  listView={true}
                 />
               </>
             ) : (
