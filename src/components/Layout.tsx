@@ -31,7 +31,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   onClick={() => navigate(item.path)}
                   className={`flex items-center px-4 py-3 text-sm font-medium rounded-md group w-full transition-colors ${
                     window.location.pathname === item.path
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-blue-100 text-blue-700 border-[1.5px] border-blue-500 border-l-8'
                       : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
                   }`}
                 >
